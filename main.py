@@ -1,4 +1,4 @@
-# Nakrutka bot - yangilangan va kengaytirilgan (aiogram 3.x)
+# Nakrutka bot (Flask bilan doimiy ishlaydigan versiya)
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile, ReplyKeyboardMarkup, KeyboardButton
@@ -6,6 +6,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from keep_alive import keep_alive  # <-- Flask qo‘shilgan joy
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -24,7 +25,6 @@ class OrderState(StatesGroup):
     waiting_for_payment = State()
     waiting_for_final_confirm = State()
 
-# Inline menyu - xizmatlar ro'yxati
 def service_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👥 Obunachi – 1 000 so‘m (1–2 kun)", callback_data="s1")],
@@ -37,7 +37,6 @@ def service_menu():
         [InlineKeyboardButton(text="👥 Obunachi – 34 000 so‘m (Doimiy)", callback_data="s8")]
     ])
 
-# Reply menyu - faqat shikoyat va takliflar uchun
 main_reply_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📩 Taklif va shikoyatlar")]
@@ -127,6 +126,7 @@ async def done_service(callback: CallbackQuery):
     await bot.delete_message(callback.message.chat.id, callback.message.message_id)
 
 async def main():
+    keep_alive()  # <-- Flask serverni ishga tushiramiz
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
