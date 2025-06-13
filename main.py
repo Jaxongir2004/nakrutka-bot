@@ -1,7 +1,7 @@
 # Nakrutka bot (Flask bilan doimiy ishlaydigan versiya)
 
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -25,18 +25,30 @@ class OrderState(StatesGroup):
     waiting_for_payment = State()
     waiting_for_final_confirm = State()
 
+main_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [
+            KeyboardButton(text="📦 Telegram nakrutka"),
+            KeyboardButton(text="📩 Taklif va shikoyatlar")
+        ]
+    ],
+    resize_keyboard=True
+)
+
 def service_menu():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👥 Obunachi – 1 000 so‘m (1–2 kun)", callback_data="s1")],
-        [InlineKeyboardButton(text="👥 Obunachi – 10 000 so‘m (1 oy+)", callback_data="s2")],
-        [InlineKeyboardButton(text="👥 Obunachi – 20 000 so‘m (3 oy)", callback_data="s3")],
-        [InlineKeyboardButton(text="👥 Obunachi – 24 000 so‘m (4 oy)", callback_data="s4")],
-        [InlineKeyboardButton(text="👥 Obunachi – 25 000 so‘m (O‘zbek, 1 oy kafolat)", callback_data="s5")],
-        [InlineKeyboardButton(text="👥 Obunachi – 25 000 so‘m (5 oy kafolat)", callback_data="s6")],
-        [InlineKeyboardButton(text="👥 Obunachi – 32 000 so‘m (1 yil)", callback_data="s7")],
-        [InlineKeyboardButton(text="👥 Obunachi – 34 000 so‘m (Doimiy)", callback_data="s8")],
-        [InlineKeyboardButton(text="📩 Taklif va shikoyatlar", callback_data="feedback")]
-    ])
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="👥 Obunachi – 1 000 so‘m (1–2 kun)")],
+            [KeyboardButton(text="👥 Obunachi – 10 000 so‘m (1 oy+)")],
+            [KeyboardButton(text="👥 Obunachi – 20 000 so‘m (3 oy)")],
+            [KeyboardButton(text="👥 Obunachi – 24 000 so‘m (4 oy)")],
+            [KeyboardButton(text="👥 Obunachi – 25 000 so‘m (O‘zbek, 1 oy kafolat)")],
+            [KeyboardButton(text="👥 Obunachi – 25 000 so‘m (5 oy kafolat)")],
+            [KeyboardButton(text="👥 Obunachi – 32 000 so‘m (1 yil)")],
+            [KeyboardButton(text="👥 Obunachi – 34 000 so‘m (Doimiy)")]
+        ],
+        resize_keyboard=True
+    )
 
 def admin_confirm_buttons(user_id):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -54,33 +66,32 @@ def admin_done_button(user_id):
 @dp.message(F.text == "/start")
 async def start(message: Message, state: FSMContext):
     await state.clear()
+    await message.answer("👋 Xush kelibsiz! Quyidagi bo‘limlardan birini tanlang:", reply_markup=main_menu)
+
+@dp.message(F.text == "📩 Taklif va shikoyatlar")
+async def feedback_panel(message: Message):
+    await message.answer("📬 Taklif yoki shikoyatlaringiz uchun admin: @Toxtasinov_Bohodirjon")
+
+@dp.message(F.text == "📦 Telegram nakrutka")
+async def show_services(message: Message, state: FSMContext):
     await state.set_state(OrderState.choosing_service)
-    await message.answer("👋 <b>Telegram nakrutka xizmati</b>\n\nQuyidagilardan birini tanlang:", reply_markup=service_menu())
+    await message.answer("👇 Xizmat turini tanlang:", reply_markup=service_menu())
 
-@dp.callback_query(F.data == "feedback")
-async def feedback_handler(callback: CallbackQuery):
-    await callback.answer()
-    await callback.message.answer("📩 Taklif yoki shikoyatlaringiz bo‘lsa, quyidagi admin bilan bog‘laning: @Toxtasinov_Bohodirjon")
-
-@dp.callback_query(F.data.startswith("s"))
-async def choose_service(callback: CallbackQuery, state: FSMContext):
-    await bot.delete_message(callback.message.chat.id, callback.message.message_id)
-    await state.update_data(service=callback.data)
+@dp.message(F.text.startswith("👥 "))
+async def choose_service(message: Message, state: FSMContext):
+    price_text = message.text
+    data_key = price_text[:10].lower().replace(" ", "")
+    await state.update_data(service=price_text)
     await state.set_state(OrderState.waiting_for_link)
-    await callback.message.answer("📎 Iltimos, nakrutka uriladigan kanal yoki guruh linkini yuboring.")
+    await message.answer("📎 Iltimos, nakrutka uriladigan kanal yoki guruh linkini yuboring.")
 
 @dp.message(OrderState.waiting_for_link)
 async def receive_link(message: Message, state: FSMContext):
     await state.update_data(link=message.text)
-    prices = {
-        "s1": "1 000", "s2": "10 000", "s3": "20 000", "s4": "24 000",
-        "s5": "25 000 (O‘zbek)", "s6": "25 000", "s7": "32 000", "s8": "34 000"
-    }
     data = await state.get_data()
-    summa = prices.get(data['service'], "?")
     await state.set_state(OrderState.waiting_for_payment)
     await message.answer(
-        f"💳 To‘lov summasi: <b>{summa} so‘m</b>\nKarta raqami: <code>5614 6835 1813 5967</code>\n\n"
+        f"💳 To‘lov summasi: <b>{data['service']}</b>\nKarta raqami: <code>5614 6835 1813 5967</code>\n\n"
         f"✅ Iltimos, to‘lov chekini shu yerga yuboring. Soxta chek yubormang.")
 
 @dp.message(OrderState.waiting_for_payment, F.photo | F.document | F.text)
@@ -88,7 +99,7 @@ async def receive_payment(message: Message, state: FSMContext):
     data = await state.get_data()
     caption = (
         f"📥 <b>Yangi zayavka</b>\n\n👤 Foydalanuvchi: @{message.from_user.username} ({message.from_user.id})\n"
-        f"🔗 Link: {data['link']}\n\n✉️ Chek quyida.")
+        f"🔗 Link: {data['link']}\n📦 Xizmat: {data['service']}\n\n✉️ Chek quyida.")
 
     if message.photo:
         await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, reply_markup=admin_confirm_buttons(message.from_user.id))
