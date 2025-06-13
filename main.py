@@ -6,7 +6,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from keep_alive import keep_alive  # <-- Flask qo‘shilgan joy
+from keep_alive import keep_alive
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -34,16 +34,9 @@ def service_menu():
         [InlineKeyboardButton(text="👥 Obunachi – 25 000 so‘m (O‘zbek, 1 oy kafolat)", callback_data="s5")],
         [InlineKeyboardButton(text="👥 Obunachi – 25 000 so‘m (5 oy kafolat)", callback_data="s6")],
         [InlineKeyboardButton(text="👥 Obunachi – 32 000 so‘m (1 yil)", callback_data="s7")],
-        [InlineKeyboardButton(text="👥 Obunachi – 34 000 so‘m (Doimiy)", callback_data="s8")]
+        [InlineKeyboardButton(text="👥 Obunachi – 34 000 so‘m (Doimiy)", callback_data="s8")],
+        [InlineKeyboardButton(text="📩 Taklif va shikoyatlar", callback_data="feedback")]
     ])
-
-main_reply_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="📩 Taklif va shikoyatlar")]
-    ],
-    resize_keyboard=True,
-    input_field_placeholder="Kerakli bo‘limni tanlang"
-)
 
 def admin_confirm_buttons(user_id):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -63,11 +56,11 @@ async def start(message: Message, state: FSMContext):
     await state.clear()
     await state.set_state(OrderState.choosing_service)
     await message.answer("👋 <b>Telegram nakrutka xizmati</b>\n\nQuyidagilardan birini tanlang:", reply_markup=service_menu())
-    await message.answer("👇 Qo‘shimcha bo‘lim:", reply_markup=main_reply_keyboard)
 
-@dp.message(F.text == "📩 Taklif va shikoyatlar")
-async def feedback(message: Message):
-    await message.answer("📩 Taklif yoki shikoyatlaringiz bo‘lsa, quyidagi admin bilan bog‘laning: @Toxtasinov_Bohodirjon")
+@dp.callback_query(F.data == "feedback")
+async def feedback_handler(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer("📩 Taklif yoki shikoyatlaringiz bo‘lsa, quyidagi admin bilan bog‘laning: @Toxtasinov_Bohodirjon")
 
 @dp.callback_query(F.data.startswith("s"))
 async def choose_service(callback: CallbackQuery, state: FSMContext):
@@ -126,8 +119,9 @@ async def done_service(callback: CallbackQuery):
     await bot.delete_message(callback.message.chat.id, callback.message.message_id)
 
 async def main():
-    keep_alive()  # <-- Flask serverni ishga tushiramiz
+    keep_alive()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
