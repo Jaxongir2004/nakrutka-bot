@@ -19,6 +19,11 @@ ADMIN_ID = int(os.getenv("ADMIN_ID"))
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
 
+REQUIRED_CHANNELS = [
+    "@ENG_SIFATLI_VA_ARZON_REKLAMA",
+    "@Obunachi_bot_guruh"
+]
+
 class OrderState(StatesGroup):
     choosing_service = State()
     waiting_for_link = State()
@@ -63,10 +68,38 @@ def admin_done_button(user_id):
         [InlineKeyboardButton(text="✅ Ha, nakrutka urildi", callback_data=f"done_{user_id}")]
     ])
 
+def force_subscribe_buttons():
+    buttons = [
+        [InlineKeyboardButton(text="🔗 Obuna bo‘lish 1", url="https://t.me/ENG_SIFATLI_VA_ARZON_REKLAMA")],
+        [InlineKeyboardButton(text="🔗 Obuna bo‘lish 2", url="https://t.me/Obunachi_bot_guruh")],
+        [InlineKeyboardButton(text="✅ Tekshirish", callback_data="check_subscription")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+async def check_user_subscription(user_id):
+    for channel in REQUIRED_CHANNELS:
+        member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+        if member.status not in ["member", "administrator", "creator"]:
+            return False
+    return True
+
 @dp.message(F.text == "/start")
 async def start(message: Message, state: FSMContext):
+    is_subscribed = await check_user_subscription(message.from_user.id)
+    if not is_subscribed:
+        await message.answer("⛔ Botdan foydalanish uchun quyidagi kanallarga obuna bo‘ling:", reply_markup=force_subscribe_buttons())
+        return
     await state.clear()
     await message.answer("👋 Xush kelibsiz! Quyidagi bo‘limlardan birini tanlang:", reply_markup=main_menu)
+
+@dp.callback_query(F.data == "check_subscription")
+async def check_subscription(callback: CallbackQuery, state: FSMContext):
+    is_subscribed = await check_user_subscription(callback.from_user.id)
+    if is_subscribed:
+        await callback.message.delete()
+        await callback.message.answer("✅ Obuna tekshiruvdan muvaffaqiyatli o‘tdi!", reply_markup=main_menu)
+    else:
+        await callback.answer("⛔ Hali ham obuna bo‘lmagansiz.", show_alert=True)
 
 @dp.message(F.text == "📩 Taklif va shikoyatlar")
 async def feedback_panel(message: Message):
